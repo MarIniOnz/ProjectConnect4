@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Optional
 import numpy as np
+from typing import Callable, Tuple
+
 
 BoardPiece = np.int8  # The data type (dtype) of the board
 NO_PLAYER = BoardPiece(0)  # board[i, j] == NO_PLAYER where the position is empty
@@ -14,6 +16,15 @@ PLAYER2_PRINT = str('O')
 
 PlayerAction = np.int8  # The column to be played
 
+
+class SavedState:
+    def __init__(self, computational_result):
+        self.computational_result = computational_result
+
+GenMove = Callable[
+    [np.ndarray, BoardPiece, Optional[SavedState]],  # Arguments for the generate_move function
+    Tuple[PlayerAction, Optional[SavedState]]  # Return type of the generate_move function
+]
 
 class GameState(Enum):
     IS_WIN = 1
@@ -146,7 +157,7 @@ def connected_four(
     If desired, the last action taken (i.e. last column played) can be provided
     for potential speed optimisation.
     """
-    indexes = findall(1, board)
+    indexes = findall(player, board)
     x, y = np.shape(board)
 
     dirs = np.array([[1, 1], [1, -1], [1, 0], [0, 1]])
@@ -181,7 +192,7 @@ def connected_four(
                     sums[i, j] += 1
                     new_ind = new_ind - dirs[j]
 
-    if sum(sums >= 4) > 0:
+    if np.sum(sums >= 4) > 0:
         return True
     else:
         return False
@@ -199,9 +210,10 @@ def check_end_state(
 
     if connected_four(board, player):
         return GameState.IS_WIN
-    elif sum(board == 0) == 0 and not connected_four(board, player):
+    elif np.sum(board == 0) == 0 and not connected_four(board, player):
         return GameState.IS_DRAW
     else:
         return GameState.STILL_PLAYING
 
     # raise NotImplementedError()
+
