@@ -201,11 +201,12 @@ def connected_four(
 
 def check_end_state(
         board: np.ndarray, player: BoardPiece, last_action: Optional[PlayerAction] = None,
-) -> GameState:
+) -> object:
     """
     Returns the current game state for the current `player`, i.e. has their last
     action won (GameState.IS_WIN) or drawn (GameState.IS_DRAW) the game,
     or is play still on-going (GameState.STILL_PLAYING)?
+    :rtype: object
     """
 
     if connected_four(board, player):

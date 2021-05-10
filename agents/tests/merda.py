@@ -1,6 +1,6 @@
 import numpy as np
 from agents.common import findall
-from agents.agent_minimax.minimax import minmax_tree
+from agents.agent_minimax.minimax import minimax_action
 
 BoardPiece = np.int8
 NO_PLAYER = BoardPiece(0)
@@ -87,5 +87,5 @@ if np.sum(sums>=4)>0:
 else:
     ended= 0
 
-M=minmax_tree()
-print(M)
+print(board)
+p,j = minimax_action(board,PLAYER1)
