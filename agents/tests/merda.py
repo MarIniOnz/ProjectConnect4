@@ -88,4 +88,20 @@ else:
     ended= 0
 
 print(board)
-p,j = minimax_action(board,PLAYER1)
+board_values = np.array([[3,4,5,7,5,4,3],
+                [4,6,8,10,8,6,4],
+                [5,8,11,13,11,8,5],
+                [5,8,11,13,11,8,5],
+                [4,6,8,10,8,6,4],
+                [3,4,5,7,5,4,3]])
+board[:] = NO_PLAYER
+
+board[5, 0] = PLAYER2
+board[5, 1] = PLAYER1
+# board[5, 2] = PLAYER2
+board[5, 3] = PLAYER1
+board[5, 4] = PLAYER1
+board[5, 5] = PLAYER1
+
+p,j = minimax_action(board,PLAYER2,board_values)
+print(p)

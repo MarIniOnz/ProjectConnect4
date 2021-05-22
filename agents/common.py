@@ -83,6 +83,7 @@ def pretty_print_board(board: np.ndarray) -> str:
         board_str += '=='
     board_str += '|\n'
 
+    board_str += '|'
     for p in range(0,y):
         board_str += str(p) +' '
     board_str += '|'
@@ -121,22 +122,26 @@ def string_to_board(pp_board: str) -> np.ndarray:
 
 
 def apply_player_action(
-        board: np.ndarray, action: PlayerAction, player: BoardPiece, copy: bool = False
+        board: np.ndarray, action: PlayerAction, player: BoardPiece, copy: bool = False, pos : bool = False
 ) :
     """
     Sets board[i, action] = player, where i is the lowest open row. The modified
     board is returned. If copy is True, makes a copy of the board before modifying it.
     :type board: object
     """
-    copied_board = board
+    old_board = np.copy(board)
     row = sum(board[:, action] == 0) - 1
-    board[row, action] = player
+    position = 0
+    if row>= 0:
+        board[row, action] = player
+        position = row, action
 
-    if not copy:
-        return board
+    if copy and not pos:
+        return old_board
+    elif pos and not copy:
+        return position
     else:
-        return board, copied_board
-    # raise NotImplementedError()
+        return old_board, position
 
 
 def findall(element, matrix):
