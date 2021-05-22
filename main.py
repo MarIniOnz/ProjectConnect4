@@ -1,11 +1,9 @@
 import numpy as np
-from typing import Optional, Callable
 from typing import Optional
-import numpy as np
-from typing import Callable, Tuple
+from typing import Callable
 from agents.common import PlayerAction, BoardPiece, SavedState, GenMove
 from agents.agent_minimax.minimax import minimax_action
-from agents.agent_minimax.anuja import s_minimax_action
+from agents.agents_random.random import generate_move_random
 
 board_values = np.array([[3,4,5,7,5,4,3],
                 [4,6,8,10,8,6,4],
@@ -26,7 +24,7 @@ def user_move(board: np.ndarray, _player: BoardPiece, saved_state: Optional[Save
 
 def human_vs_agent(
     generate_move_1: GenMove,
-    generate_move_2: GenMove = user_move,
+    generate_move_2: GenMove ,
     player_1: str = "Player 1",
     player_2: str = "Player 2",
     args_1: tuple = (),
@@ -83,4 +81,5 @@ def human_vs_agent(
 
 
 if __name__ == "__main__":
-    human_vs_agent(minimax_action)
+    # human_vs_agent(minimax_action,generate_move_random)
+    human_vs_agent(minimax_action,user_move)

@@ -1,5 +1,5 @@
 import numpy as np
-from agents.common import findall
+from agents.common import findall, pretty_print_board
 from agents.agent_minimax.minimax import minimax_action
 
 BoardPiece = np.int8
@@ -98,10 +98,12 @@ board[:] = NO_PLAYER
 
 board[5, 0] = PLAYER2
 board[5, 1] = PLAYER1
-# board[5, 2] = PLAYER2
+board[5, 2] = PLAYER2
 board[5, 3] = PLAYER1
 board[5, 4] = PLAYER1
 board[5, 5] = PLAYER1
 
 p,j = minimax_action(board,PLAYER2,board_values)
 print(p)
+
+m = pretty_print_board(board)

@@ -5,28 +5,45 @@ from agents.common import GameState, BoardPiece, PlayerAction, SavedState, check
 """ Minimax algorithm.
 
 This file contains all the necessary functions and values needed for the
-execution of the minimax agent in the main.py file.
+execution of this minimax agent in the main.py file. For that,
+the main function called "minimax_action" is used. It is important, that
+is executed with the common.py contained in this project.
 
     Typical usage example:
 
-    human_vs_agent(minimax_action)
-
+        human_vs_agent(minimax_action)
+    
 """
 
 
 class Tree:
+    """ Class used to create a branching tree.
 
-    def __init__(self, value, alpha, beta):
+    This creates the class so that a value can be given to each node,
+    and thanks to the function "add_node", children can be appended
+    to the node so more branches are attached to father nodes.
+
+    Attributes:
+        value : Heuristic value assigned to the node.
+        child : Creation of a child to the node.
+
+    """
+
+    def __init__(self, value):
+        """ Inits Tree assigning the value to the node."""
         self.value = value
-        self.children = []
-        self.alpha = alpha
-        self.beta = beta
+        self.child = []
 
-    def add_node(self, value, alpha, beta):
-        self.children.append(Tree(value, alpha, beta))
+    def add_node(self, value):
+        """ Appends the value to the child node."""
+        self.child.append(Tree(value))
 
 
-board_values = np.array([[3, 4, 5, 7, 5, 4, 3],
+# Board values that will be used for the heuristic calculation of the nodes:
+# It gives positions themselves a value, depending on the number of different
+# possible outcomes can end up in a win when holding that position.
+
+BOARD_VALUES = np.array([[3, 4, 5, 7, 5, 4, 3],
                          [4, 6, 8, 10, 8, 6, 4],
                          [5, 8, 11, 13, 11, 8, 5],
                          [5, 8, 11, 13, 11, 8, 5],
@@ -35,120 +52,222 @@ board_values = np.array([[3, 4, 5, 7, 5, 4, 3],
 
 
 def minmax_tree() -> Tree:
-    alpha = -np.inf
-    beta = np.inf
-    min_tree = Tree(0, alpha, beta)
+    """ Initializes the tree for the search of the best minimax outcome.
+    Initializes child to be maximized with lowest possible value (- high value)
+    and the ones which will be minimized with the biggest possible value (high value).
+
+    Returns:
+          An initialized tree of 4 layers of depth in a 7 columns board.
+        {
+          tree:
+        }
+
+    """
+    val = 10000
+    min_tree = Tree(-val)
 
     for i in range(0, 7):
-        min_tree.add_node(-np.inf, alpha, beta)
+        min_tree.add_node(-val)
         for j in range(0, 7):
-            min_tree.children[i].add_node(+np.inf, alpha, beta)
+            min_tree.child[i].add_node(val)
             for k in range(0, 7):
-                min_tree.children[i].children[j].add_node(-np.inf, alpha, beta)
-                for l in range(0, 7):
-                    min_tree.children[i].children[j].children[k].add_node(+np.inf, alpha, beta)
+                min_tree.child[i].child[j].add_node(-val)
+                for v in range(0, 7):
+                    min_tree.child[i].child[j].child[k].add_node(+val)
 
     return min_tree
 
 
-def assign_weight(board, pos_tree, player, board_values=board_values) -> object:
+def assign_weight(board, pos_tree, player, board_values=BOARD_VALUES):
+    """ Function assigning heuristic value to the addition of new piece.
+
+    This function takes the board given and the column in which a new piece will
+    be introduced by a specific player and return a heuristic value associated to
+    that move.
+
+    Args:
+        board: C4 board of 6x7 to which a new action's heuristic will be tested.
+        pos_tree: Column in which the player will deposit its piece.
+        player: Player which is playing at that instant.
+        board_values: Value pre-given to each position depending on the possible
+                      wins one can perform in that position.
+
+    Returns:
+        game: GameState.IS_WIN if player won, GameState. Otherwise,
+              GameState.STILL_PLAYING or GameState.IS_DRAW if board is full.
+        val_board: Returns the heuristic value of the board_values, assigned to that board
+                   position or returns 100 if the column is full and no piece can be
+                   placed there.
+
+    """
     old_board, position = apply_player_action(board, pos_tree, player, True, True)
-    value = check_end_state(board, player)
+    game = check_end_state(board, player)
+
     if position != 0:
         val_board = board_values[position]
     else:
         val_board = 100
-    if value == GameState.IS_DRAW:
-        value = GameState.STILL_PLAYING
-    return value, old_board, val_board
+
+    return game, val_board
 
 
-def new_max_child(w_tree, index):
-    maxi = -np.inf
-    idx = np.random.randint(7)
-    for l in index:
-        new_val = w_tree.children[l].alpha
-        if new_val > maxi:
-            maxi = new_val
-            idx = l
-    return idx, maxi
+def eval_heu(heuristic, board_val, i, idx, game, node_type=np.array([1])):
+    """ Evaluation of the heuristic assigned to the node so that a break
+        could be performed for.
 
+    Intermediate evaluation of the heuristic value given by the assign_weight function.
+    If the column was full, and thus a board value of 100 was given, the value of the node
+    is assigned to +- high value (depending on the type of node), and a boolean variable
+    is set to True, so that branch is no longer inspected (already full column), so that
+    that column cannot be considered as a possible way of the development of the game.
 
-def max_child(w_tree, index):
-    maxi = -np.inf
-    idx = np.random.randint(7)
-    for l in index:
-        new_val = w_tree.children[l].value
-        if new_val > maxi:
-            maxi = new_val
-            idx = l
-    return idx, maxi
+    Args:
+        heuristic: Represents a cumulative variable that takes the heuristic information
+                   of previous movements up in the chain of depth layers so that the
+                   heuristic conserves the importance of all the moves prior to this one.
+        board_val: New board value associated to that new move in the respective column "i".
+        i: Column used for the new piece placement.
+        idx: Variable storing all the child nodes of this layer that have a plausible pathway
+             to be inspected and followed (no pieces assigned to full columns or games that
+             have already been won).
+        game: GameState.IS_WIN if player won, GameState. Otherwise,
+              GameState.STILL_PLAYING or GameState.IS_DRAW if board is full.
+        node_type: 1 for minimizing node and -1 for maximizing node.
 
+    Returns:
+        break_y: True if a break is needed (full column or game is won), False otherwise.
+        new_heuristic: Cumulative variable once it has been summed the value given by
+                       the position of the new piece in the "i" column.
 
-def min_child(w_tree, index):
-    mini = np.inf
-    idx = np.random.randint(7)
-    for l in index:
-        new_val = w_tree.children[l].value
-        if new_val < mini:
-            mini = new_val
-            idx = l
-    return idx, mini
-
-
-def eval_step(choice_, board_val, i, idx, game, Min=np.array([1])):
+    """
     break_y = False
 
-    if board_val == 100:
-        choice_new = Min * np.inf
+    if board_val == 100:  # Full column.
+        new_heuristic = node_type * 100000  # Child is not an option.
         break_y = True
     else:
-        choice_new = choice_ - Min * board_val
-        # choice_new = choice_ + board_val
+        '''Adding the board value to the cumulative variable if we are maximizing
+        (the position gives more winning opportunities to the agent),
+        or subtracting from the cumulative variable if minimizing (the opponent
+        gets more chances of winning).'''
+
+        new_heuristic = heuristic - node_type * board_val
         idx.append(i)
 
     if game == GameState.IS_WIN:
-        choice_new = -Min * np.inf
+        new_heuristic = -node_type * 10000  # Choose this child.
         idx.append(i)
-        # choice_new = np.inf
         break_y = True
 
-    return break_y, choice_new
+    return break_y, new_heuristic
 
 
-def s_minimax_action(board: np.ndarray, player: BoardPiece, saved_state: Optional[SavedState]):
-    # -> Tuple[PlayerAction, Optional[SavedState]]:
+def max_child(father, index):
+    """ Function to this the child of a node maximizing it.
+
+    Screening all of the child that were inspected (and there
+    was no break when their heuristic assignation was performed) given by
+    the variable index. If their value is the biggest one from them all, they
+    will return that value, along with their position. If none of them was
+    inspected, and thus all of them are equal to - high value, a random index will be
+    returned.
+
+    Args:
+        father: Maximizing tree node.
+        index: Indexes of which child has been assigned a heuristic value.
+
+    Returns:
+        idx: Index of the child with the biggest associated value.
+        maxi: Value of that child.
+
     """
-        Enter the current state of the board and "best" non-full column
-        to perform the next movement, returning it as "action"
-    """
-    global otherp
-    w_tree = minmax_tree()  # Weights tree
+    maxi = -10000
+    idx = np.random.randint(7)
+    for k in index:
+        new_val = father.child[k].value
+        if new_val > maxi:
+            maxi = new_val
+            idx = k
 
-    if player == BoardPiece(1):
-        otherp = BoardPiece(2)
+    return idx, maxi
+
+
+def min_child(father, index):
+    """ Function to this the child of a node minimizing it.
+
+        Screening all of the child that were inspected (and there
+        was no break when their heuristic assignation was performed), given by
+        the variable index. If their value is the smallest one from them all, they
+        will return that value, along with their position. If none of them was
+        inspected, and thus all of them are equal to a very high value, a random index will be
+        returned.
+
+        Args:
+            father: Minimizing tree node.
+            index: Indexes of which child has been assigned a heuristic value.
+
+        Returns:
+            idx: Index of the child with the smallest associated value.
+            maxi: Value of that child.
+
+        """
+    mini = 10000
+    idx = np.random.randint(7)
+    for k in index:
+        new_val = father.child[k].value
+        if new_val < mini:
+            mini = new_val
+            idx = k
+
+    return idx, mini
+
+
+def minimax_action(board: np.ndarray, player: BoardPiece, saved_state: Optional[SavedState]):
+    """Minimax agent getting a board and the corresponding player turn and returning
+       the best non-full column for the player according to the algorithm.
+
+    Enter the current state of the board, and performs a top-bottom search on different positions
+    of the board, so that the most optimal according the heuristics used is found.
+
+    Args:
+        board: Current state of the board
+        player: Whose turn is it.
+        saved_state: Pre-computation work
+
+    Returns:
+        action: Best column to use.
+        saved_state_out: Tree structure
+    """
+    global BOARD_VALUES
+
+    tree = minmax_tree()  # Weights tree initialization.
+    other_player = None
+
+    if player == BoardPiece(1):  # Finding out which player is who.
+        other_player = BoardPiece(2)
     elif player == BoardPiece(2):
-        otherp = BoardPiece(1)
+        other_player = BoardPiece(1)
 
     idx1 = []
     start = -1
 
-    for i in range(0, 7):  # player plays
-        choice_v1 = 0
+    for i in range(0, 7):  # Player plays
+        cumul1 = 0  # Initialization of the cumulative variable.
         old_board = board.copy()
 
-        # It is always best to start with central columnn.
+        # Optimal way to start: central column.
         if sum(sum(old_board[:, :]) == 0) == 7:
             start = 10
             break
 
-        game, board, board_val = assign_weight(old_board, i, player, board_values)
-        break_y, choice_v1 = eval_step(choice_v1, board_val, i, idx1, game, Min=np.array([-1]))
+        game, board_val = assign_weight(old_board, i, player, BOARD_VALUES)
+        break_y, cumul1 = eval_heu(cumul1, board_val, i, idx1, game, node_type=np.array([-1]))
 
-        if break_y and choice_v1 > 10000:
-            w_tree.children[i].value = choice_v1
+        if break_y and cumul1 > 10000:  # Already a winning position, break the search.
+            tree.child[i].value = cumul1
             break
-        elif break_y and choice_v1 < 10000:
+        elif break_y and cumul1 < 10000:  # Full column, do not go down its branches.
+            tree.child[i].value = cumul1
             continue
 
         idx2 = []
@@ -156,50 +275,47 @@ def s_minimax_action(board: np.ndarray, player: BoardPiece, saved_state: Optiona
         for j in range(0, 7):  # other player plays
             old_board1 = old_board.copy()
 
-            game, new_b2, board_val = assign_weight(old_board1, j, otherp, board_values)
-            break_y, choice_v2 = eval_step(choice_v1, board_val, j, idx2, game)
+            game, board_val = assign_weight(old_board1, j, other_player, BOARD_VALUES)
+            break_y, cumul2 = eval_heu(cumul1, board_val, j, idx2, game)
 
-            if break_y:
-                w_tree.children[i].children[j].value = choice_v2
+            if break_y:  # Either a full-column (worst value given) or a win (best one given).
+                tree.child[i].child[j].value = cumul2
                 continue
 
             idx3 = []
             for k in range(0, 7):  # player plays
                 old_board2 = old_board1.copy()
-                choice_v3 = 0
 
-                game, new_b3, board_val = assign_weight(old_board2, k, player, board_values)
-                break_y, choice_v3 = eval_step(choice_v2, board_val, k, idx3, game, np.array([-1]))
+                game, board_val = assign_weight(old_board2, k, player, BOARD_VALUES)
+                break_y, cumul3 = eval_heu(cumul2, board_val, k, idx3, game, np.array([-1]))
 
-                if break_y:
-                    w_tree.children[i].children[j].children[k].value = choice_v3
+                if break_y:  # Either a full-column (worst value given) or a win (best one given).
+                    tree.child[i].child[j].child[k].value = cumul3
                     continue
                 idx4 = []
 
-                for l in range(0, 7):  # other player plays
+                for v in range(0, 7):  # other player plays
                     old_board3 = old_board2.copy()
 
-                    game, _, board_val = assign_weight(old_board3, l, otherp, board_values)
-                    break_y, choice_v4 = eval_step(choice_v3, board_val, l, idx4, game)
+                    game, board_val = assign_weight(old_board3, v, other_player, BOARD_VALUES)
+                    break_y, cumul4 = eval_heu(cumul3, board_val, v, idx4, game)
 
-                    w_tree.children[i].children[j].children[k].children[l].value = choice_v4
+                    # Last layers' nodes assigned the top-down cumulative heuristic value.
+                    tree.child[i].child[j].child[k].child[v].value = cumul4
 
-                    if break_y:
-                        continue
+                _, val_4 = min_child(tree.child[i].child[j].child[k], idx4)
+                tree.child[i].child[j].child[k].value = val_4  # Assigning the value to father of minimal node.
+            _, val_3 = max_child(tree.child[i].child[j], idx3)
+            tree.child[i].child[j].value = val_3  # Assigning the value to father of maximal node.
+        _, val_2 = min_child(tree.child[i], idx2)
+        tree.child[i].value = val_2  # Assigning the value to father of minimal node.
+    action, tree.value = max_child(tree, idx1)
 
-                _, val_4 = min_child(w_tree.children[i].children[j].children[k], idx4)
-                w_tree.children[i].children[j].children[k].value = val_4
+    action = PlayerAction(action)  # Action to be taken in the Class PlayerAction
 
-            _, val_3 = max_child(w_tree.children[i].children[j], idx3)
-            w_tree.children[i].children[j].value = val_3
-        _, val_2 = min_child(w_tree.children[i], idx2)
-        w_tree.children[i].value = val_2
-    action, w_tree.value = max_child(w_tree, idx1)
-
-    action = PlayerAction(action)
-
-    if start == 10:
+    if start == 10:  # If it is the 1st movement, 1st action performed is the optimal: column 3.
         action = 3
 
-    # return action,w_tree
-    return action, saved_state
+    saved_state_out = tree
+
+    return action, saved_state_out
